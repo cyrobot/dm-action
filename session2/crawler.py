@@ -4,7 +4,7 @@ __author__ = 'robert'
 import urllib2
 import os
 import BeautifulSoup as bs
-import scrapy
+import re
 
 JD_FOOD_LINK_PREFIX = u"http://list.jd.com/list.html?cat=1320%2C1583%2C1590&page="
 JD_FOOD_LINK_POSTFIX = u"&JL=6_0_0"
@@ -94,24 +94,27 @@ def analyze_url_list():
 def analyze_file(filepath):
     content = restore_page(filepath)
     if content is not None:
-        soup = bs.BeautifulSoup(content)
-        detail_table = soup.find('table', {'class': 'Ptable'})
-        soup = bs.BeautifulSoup(str(detail_table))
-        item_para_name = soup.findAll('td', {'class': 'tdTitle'})
-        for para_name in item_para_name:
-            print para_name.text, ":", para_name.nextSibling.text
+        analyze_content(content)
 
-def analyze_content(url):
+def analyze_content(content):
     """
     analyze the goods page
     """
-    # soup = bs.BeautifulSoup(content)
-    # item_detail_html = soup.findAll('ul', {'id': 'detail-list'})
-    # item_detail = item_detail_html[0]
-    # soup = bs.BeautifulSoup(str(item_detail))
-    # detail = soup.find('ul')
-    # print detail['class']
-    pass
+    soup = bs.BeautifulSoup(content)
+    tag_detail_list = soup.find('ul', {'class': 'detail-list'})
+    tag_detail_table = soup.find('table', {'class': 'Ptable'})
+    # detail-1
+    soup = bs.BeautifulSoup(str(tag_detail_list))
+    item_para = soup.findAll('li')
+    for para in item_para:
+        newtext = para.text.replace(u'：', ':')
+        para_name, para_value = unicode.split(newtext, u':', 1)
+        print para_name, ":", para_value
+    #detail-2
+    soup = bs.BeautifulSoup(str(tag_detail_table))
+    item_para_name = soup.findAll('td', {'class': 'tdTitle'})
+    for para_name in item_para_name:
+        print para_name.text, ":", para_name.nextSibling.text
 
 def store_goods_links(goods_links, path):
     """
@@ -120,9 +123,9 @@ def store_goods_links(goods_links, path):
     pass
 
 def test_analyze_content():
-    # analyze_content('http://item.jd.com/1105329.html')
-    analyze_file("test.html")
-    pass
+    content = get_page('http://item.jd.com/724035.html')
+    analyze_content(content)
+    # analyze_file("test.html")
 
 if __name__ == "__main__":
     if not check_file_exits(FP_ITEM_INFO_LIST):
