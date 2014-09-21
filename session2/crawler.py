@@ -96,6 +96,36 @@ def analyze_file(filepath):
     if content is not None:
         analyze_content(content)
 
+def analyze_comment_page(comment_url):
+    """
+    analyze the review comments
+    """
+    comment_content = get_page(comment_url)
+    check_if_last_comment_page(comment_content)
+    soup = bs.BeautifulSoup(comment_content)
+    tag_comments = soup.findAll('div', {'class': 'comment-content'})
+    for tag_comment in tag_comments:
+        soup = bs.BeautifulSoup(unicode(tag_comment))
+        comment_heads = soup.findAll('dt')
+        for comment_head in comment_heads:
+            head_text = unicode.replace(comment_head.text, u'　', '')
+            if head_text == u'心得：':
+                soup = bs.BeautifulSoup(unicode(comment_head.parent))
+                comment = soup.find('dd')
+                print comment.text
+
+def check_if_last_comment_page(comment_content):
+    """find '下一页'"""
+    soup = bs.BeautifulSoup(comment_content)
+    pagin_fr = soup.find('div', {'class': 'pagin fr'})
+    pass
+
+def get_comment_page_url(good_id, page_no):
+    """
+    http://club.jd.com/review/(good_id)-0-(page_no)-0.html
+    """
+    return 'http://club.jd.com/review/' + good_id + '-0-' + str(page_no) + '-0.html'
+
 def analyze_content(content):
     """
     analyze the goods page
@@ -125,6 +155,7 @@ def store_goods_links(goods_links, path):
 def test_analyze_content():
     content = get_page('http://item.jd.com/724035.html')
     analyze_content(content)
+    analyze_comment_page(get_comment_page_url('1105329', 1))
     # analyze_file("test.html")
 
 if __name__ == "__main__":
