@@ -12,11 +12,11 @@ def print_dict(dic, desc):
         print '$', k, ':', dic[k],
     print '}'
 
-def append_properties(dic, prop):
-    if prop in dic:
-        dic[prop] += 1
+def append_dict(dic, key):
+    if key in dic:
+        dic[key] += 1
     else:
-        dic[prop] = 1
+        dic[key] = 1
 
 def sort_dict(dic):
     return sorted(dic.iteritems(), key = lambda v:v[1], reverse=True)
