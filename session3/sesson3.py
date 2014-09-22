@@ -8,15 +8,7 @@ from util import *
 # global resources
 FP_NEGATIVE_SEEDS = 'negative.seed'
 FP_POSITIVE_SEEDS = 'positive.seed'
-FP_RECORD_FILE = ['kongtiao.segment']
-PROPERTY_THRESHOLD = 5
-POSITIVE_THRESHOLD = 20
-NEGATIVE_THRESHOLD = 10
-ENGLISH_BREAKPOINTS = '!@#$%^&*()[]{}/.,;?<>""'
-CHINESE_BREAKPOINTS = '！@#￥%……&×（）{}【】？《》；。“”，'
-NEGATIVE_ATTITUDE = -1
-POSITIVE_ATTITUDE = 1
-NONE_ATTITUDE = 0
+
 PROPERTIES_FILTER_WORDS = ['有点']
 
 # seed list
@@ -83,30 +75,6 @@ def find_seed(start, vocab, vocabp, v):
             break
     return new_seed, comment
 
-def combine_seed(pos, v, vocab, vocabp):
-    while pos >= 0:
-        if vocabp[pos-1] == 'd':
-            v = vocab[pos-1] + v
-        else:
-            break
-        pos -= 1
-    return v
-
-def check_attitude(vocab, vocabp):
-    positive_count = 0
-    negative_count = 0
-    for pos, v in enumerate(vocab):
-        combine_seed(pos, v, vocab, vocabp)
-        if v in positive_seeds:
-             positive_count += 1
-        elif v in negative_seeds:
-            negative_count += 1
-    if positive_count > 1 and negative_count == 0:
-            return POSITIVE_ATTITUDE
-    elif positive_count == 0 and negative_count > 0:
-            return NEGATIVE_ATTITUDE
-    return NONE_ATTITUDE
-
 def append_seeds(lst, new_seeds):
     for seed in new_seeds:
         append_dict(lst, seed)
@@ -126,7 +94,7 @@ def mining_seeds(vocab, vocabp, properties):
                 append_dict(valid_comments, comment)
     if len(new_seeds) == 0:
         return
-    attitude = check_attitude(vocab, vocabp)
+    attitude = judge_attitude(vocab, vocabp, positive_seeds, negative_seeds)
     if attitude == POSITIVE_ATTITUDE:
         append_seeds(new_positive_seeds, new_seeds)
         positive_comment_count += 1
@@ -172,6 +140,19 @@ def filter_properties():
             new_good_properties[k] = good_properties[k]
     return new_good_properties
 
+def filter_seeds(seeds, threshold):
+    """
+    filter the positive/negative seeds with threshold
+    :param seeds: positive/negative seeds, dict type
+    :param threshold: int
+    :return: seeds dict
+    """
+    new_seeds = {}
+    for k in seeds:
+        if seeds[k] > threshold:
+            new_seeds[k] = seeds[k]
+    return new_seeds
+
 def parse_record_file(filepath, sample_count):
     fp = open(filepath)
     for i, comment in enumerate(fp):
@@ -180,13 +161,48 @@ def parse_record_file(filepath, sample_count):
             break
     fp.close()
     good_properties = filter_properties()
-    print_dict(good_properties, 'Good properties')
     fp = open(filepath)
     for i, comment in enumerate(fp):
         # if i > 9000:
         #     break
         parse_comment_line1(comment, good_properties)
     fp.close()
+    abstracted_positive_seeds = filter_seeds(new_positive_seeds, POSITIVE_THRESHOLD)
+    abstracted_negative_seeds = filter_seeds(new_negative_seeds, NEGATIVE_THRESHOLD)
+    display_result(good_properties, abstracted_positive_seeds, abstracted_negative_seeds)
+    save_abstracted_properties(good_properties, FP_PROPERTIES_FILE)
+    save_seeds(abstracted_positive_seeds, FP_POSITIVE_ASEEDS, positive_seeds)
+    save_seeds(abstracted_negative_seeds, FP_NEGATIVE_ASEEDS, negative_seeds)
+
+def save_abstracted_properties(properties, file_path):
+    fp = open(file_path, 'w')
+    sorted_properties = sort_dict(properties)
+    for k, v in sorted_properties:
+        pstr = k + '\t' + str(v) + '\n'
+        fp.write(pstr)
+    fp.close()
+
+def save_seeds(seeds, file_path, origin):
+    fp = open(file_path, 'w')
+    sorted_seeds = sort_dict(seeds)
+    first = True
+    for k, v in sorted_seeds:
+        if first:
+            for o in origin:
+                if o not in seeds:
+                    pstr = o + '\t' + str(v) + '\n'
+                    fp.write(pstr)
+            first = False
+        pstr = k + '\t' + str(v) + '\n'
+        fp.write(pstr)
+    fp.close()
+
+def display_result(properties, positive, negative):
+    print '******************************************'
+    print 'Result: '
+    print_dict(properties, 'Properties')
+    print_dict(positive, 'Positive seeds')
+    print_dict(negative, 'Negative seeds')
 
 def display_comments():
     print 'Positive comments: {',
@@ -201,8 +217,6 @@ def display_comments():
     print '}'
 
 def display_state():
-    print_list(negative_seeds, "Negative seeds")
-    print_list(positive_seeds, "Positive seeds")
     print 'positive count:', positive_comment_count
     print 'negative count:', negative_comment_count
     print_dict(new_positive_seeds, 'New positive seeds')
