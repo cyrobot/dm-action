@@ -8,9 +8,9 @@
 import scrapy
 
 
-class TutorialItem(scrapy.Item):
+class JingdongItem(scrapy.Item):
     # define the fields for your item here like:
     # name = scrapy.Field()
-    title = scrapy.Field()
-    link = scrapy.Field()
-    desc = scrapy.Field()
+    id = scrapy.Field()
+    comment = scrapy.Field()
+    detail = scrapy.Field()

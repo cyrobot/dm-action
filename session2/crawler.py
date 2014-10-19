@@ -2,9 +2,12 @@
 __author__ = 'robert'
 
 import urllib2
+import urllib
 import os
 import BeautifulSoup as bs
-import re
+import time
+import numpy.random as random
+import requests
 
 JD_FOOD_LINK_PREFIX = u"http://list.jd.com/list.html?cat=1320%2C1583%2C1590&page="
 JD_FOOD_LINK_POSTFIX = u"&JL=6_0_0"
@@ -96,29 +99,50 @@ def analyze_file(filepath):
     if content is not None:
         analyze_content(content)
 
-def analyze_comment_page(comment_url):
+def analyze_comment_page(good_id):
     """
     analyze the review comments
     """
-    comment_content = get_page(comment_url)
-    check_if_last_comment_page(comment_content)
-    soup = bs.BeautifulSoup(comment_content)
-    tag_comments = soup.findAll('div', {'class': 'comment-content'})
-    for tag_comment in tag_comments:
-        soup = bs.BeautifulSoup(unicode(tag_comment))
-        comment_heads = soup.findAll('dt')
-        for comment_head in comment_heads:
-            head_text = unicode.replace(comment_head.text, u'　', '')
-            if head_text == u'心得：':
-                soup = bs.BeautifulSoup(unicode(comment_head.parent))
-                comment = soup.find('dd')
-                print comment.text
+    page_no = 1
+    retry_count = 0
+    while True:
+        comment_url = get_comment_page_url(good_id, page_no)
+        print 'comment url:', comment_url
+        comment_content = get_page(comment_url)
+        if comment_content is None:
+            retry_count += 1
+            if retry_count > 3:
+               break
+            continue
+        soup = bs.BeautifulSoup(comment_content)
+        is_last = is_last_page(soup)
+        tag_comments = soup.findAll('div', {'class': 'comment-content'})
+        for tag_comment in tag_comments:
+            soup = bs.BeautifulSoup(unicode(tag_comment))
+            comment_heads = soup.findAll('dt')
+            for comment_head in comment_heads:
+                head_text = unicode.replace(comment_head.text, u'　', '')
+                if head_text == u'心得：':
+                    soup = bs.BeautifulSoup(unicode(comment_head.parent))
+                    comment = soup.find('dd')
+                    print comment.text
+        if is_last:
+            print 'good', good_id, 'is reviewed'
+            break
+        page_no += 1
+        retry_count = 0
+        time.sleep(random.randint(3, 7))
 
-def check_if_last_comment_page(comment_content):
-    """find '下一页'"""
-    soup = bs.BeautifulSoup(comment_content)
-    pagin_fr = soup.find('div', {'class': 'pagin fr'})
-    pass
+def is_last_page(soup):
+    tag_page =  soup.find('div', {'class': 'pagin fr'})
+    soup_page = bs.BeautifulSoup(str(tag_page))
+    tag_next_page = soup_page.find('a', {'class': 'next'})
+    if tag_next_page is None:
+        return True
+    return False
+
+def abstracted_comments_js(soup):
+    tag_js = soup.find('')
 
 def get_comment_page_url(good_id, page_no):
     """
@@ -146,6 +170,39 @@ def analyze_content(content):
     for para_name in item_para_name:
         print para_name.text, ":", para_name.nextSibling.text
 
+def getrate_jd(pid, pagenum):
+    '''该函数用来获取商品ID是pid的第pagenum页的评论列表'''
+    headers1 = {'GET': '', 'Host': "club.jd.com",
+            'User-Agent': "Mozilla/5.0 (Windows NT 6.2; rv:29.0) Gecko/20100101 Firefox/29.0",
+            'Referer': 'http://item.jd.com/{}.html'.format(pid)}
+    r = requests.get(
+    'http://club.jd.com/productpage/p-{}-s-0-t-3-p-{}.html'.format(pid, pagenum), headers=headers1)
+    try:
+        aa = r.json()
+        ss = [x['content'] for x in aa['comments']]
+        for s in ss:
+            print s
+    except:
+        print r.content
+
+def post(url, data):
+    # req = urllib2.Request(url)
+    # data = urllib.urlencode(data)
+    # opener = urllib2.build_opener(urllib2.HTTPCookieProcessor())
+    # response = opener.open(req, data)
+    # return response.read()
+    pid = '1105329'
+    headers1 = {'GET': '',
+            'Host': "club.jd.com",
+            'User-Agent': "Mozilla/5.0 (Windows NT 6.2; rv:31.0) Gecko/20100101 Firefox/31.0",
+            'Referer': 'http://item.jd.com/{}.html'.format(pid)}
+    r1 = requests.get(
+        'http://club.jd.com/productpage/p-{}-s-0-t-3-p-{}.html'.format(pid, 0), headers=headers1)
+    maxpagenum = r1.json()['productCommentSummary']['commentCount'] // 10
+    print maxpagenum
+    for i in range(maxpagenum + 1):
+        getrate_jd(pid, i)
+
 def store_goods_links(goods_links, path):
     """
     store the list of goods links into a file
@@ -153,14 +210,19 @@ def store_goods_links(goods_links, path):
     pass
 
 def test_analyze_content():
-    content = get_page('http://item.jd.com/724035.html')
+    content = get_page('http://item.jd.com/837625.html')
     analyze_content(content)
-    analyze_comment_page(get_comment_page_url('1105329', 1))
+    # analyze_comment_page('837625')
     # analyze_file("test.html")
+
+def test_post_url(urlstr):
+    post(urlstr, {'callback': 'jsonp1412005262195', '_': '1412007087758'})
 
 if __name__ == "__main__":
     if not check_file_exits(FP_ITEM_INFO_LIST):
         list = analyze_url_list()
         print "retrieved", len(list), "items"
     test_analyze_content()
-    store_goods_links(list, "data/jd_lists.dat")
+    # store_goods_links(list, "data/jd_lists.dat")
+    # callback=jsonp1412005262195&_=1412007087758'
+    # test_post_url('http://club.jd.com/productpage/p-1105329-s-0-t-3-p-1.html')
